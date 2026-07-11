@@ -3,7 +3,9 @@ import csv
 import datetime
 import torch
 
-from attention import naive, sdpa, flash
+import functools
+
+from attention import naive, sdpa, flash, block_indexer
 from benchmark.timer import measure_latency
 from benchmark.memory import measure_peak_hbm
 from benchmark.flops import compute_flops, compute_io_bytes
@@ -12,7 +14,7 @@ VARIANTS = {
     'naive': naive.attention,
     'sdpa': sdpa.attention,
     'flash': flash.attention,
-    # Phase 3: 'block_indexer': block_indexer.attention
+    'block_indexer': functools.partial(block_indexer.attention, block_size=64, top_k=16),
 }
 
 SEQ_LENS = [512, 1024, 2048, 4096, 8192, 16384, 32768]
