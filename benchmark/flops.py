@@ -7,7 +7,7 @@ def compute_flops(batch, heads, seq_len, head_dim, variant='dense', block_size=6
         softmax_flops = 5 * B * H * N * N
         return matmul_flops + softmax_flops
 
-    elif variant == 'block_indexer':
+    elif variant in ('block_indexer', 'block_indexer_triton'):
         num_blocks = N // block_size
         # Coarse: Q @ K_repr.T where K_repr is (num_blocks, D)
         coarse_flops = 2 * B * H * N * num_blocks * D
@@ -36,7 +36,7 @@ def compute_io_bytes(batch, heads, seq_len, head_dim, variant='naive', bytes_per
         # Tiled - N*N scores matrix never written to HBM
         return qkv + output
 
-    elif variant == 'block_indexer':
+    elif variant in ('block_indexer', 'block_indexer_triton'):
         # Coarse scores: N x num_blocks (much smaller than N x N)
         num_blocks = N // block_size
         coarse_io = 2 * B * H * N * num_blocks * e
