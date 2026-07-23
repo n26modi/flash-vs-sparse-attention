@@ -1,5 +1,6 @@
 torch --index-url https://download.pytorch.org/whl/cu121
 flash-attn --no-build-isolation
+xformers --index-url https://download.pytorch.org/whl/cu121
 numpy
 matplotlib
 pandas

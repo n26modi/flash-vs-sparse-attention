@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from attention import naive, sdpa, flash, block_indexer, block_indexer_triton
+from attention import naive, sdpa, flash, block_indexer, block_indexer_triton, flex_attn, xformers_sparse
 
 B, H, N, D = 1, 2, 64, 32
 
@@ -131,3 +131,55 @@ def test_block_indexer_triton_degenerate_matches_naive():
     out_naive = naive.attention(Q, K, V, causal=False).to(torch.bfloat16)
     out_triton = block_indexer_triton.attention(Q, K, V, causal=False, block_size=BI_BLOCK_SIZE, top_k=BI_TOP_K_DENSE)
     torch.testing.assert_close(out_naive, out_triton, atol=1e-2, rtol=0)
+
+
+# --- flex_attn tests (GPU only) ---
+
+def test_flex_attn_unavailable_on_cpu():
+    if torch.cuda.is_available():
+        pytest.skip("CUDA available - this test only applies on CPU")
+    Q, K, V = make_inputs()
+    with pytest.raises(RuntimeError, match="flex_attn"):
+        flex_attn.attention(Q, K, V)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_flex_attn_output_shape():
+    device = 'cuda'
+    Q, K, V = make_inputs(torch.bfloat16, device=device)
+    out = flex_attn.attention(Q, K, V, block_size=BI_BLOCK_SIZE, top_k=BI_TOP_K)
+    assert out.shape == (B, H, N, D)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_flex_attn_finite():
+    device = 'cuda'
+    Q, K, V = make_inputs(torch.bfloat16, device=device)
+    out = flex_attn.attention(Q, K, V, causal=False, block_size=BI_BLOCK_SIZE, top_k=BI_TOP_K)
+    assert torch.isfinite(out).all(), "Output contains NaN or Inf"
+
+
+# --- xformers_sparse tests (GPU only) ---
+
+def test_xformers_sparse_unavailable_on_cpu():
+    if torch.cuda.is_available():
+        pytest.skip("CUDA available - this test only applies on CPU")
+    Q, K, V = make_inputs()
+    with pytest.raises(RuntimeError, match="xformers_sparse"):
+        xformers_sparse.attention(Q, K, V)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_xformers_sparse_output_shape():
+    device = 'cuda'
+    Q, K, V = make_inputs(torch.bfloat16, device=device)
+    out = xformers_sparse.attention(Q, K, V, block_size=BI_BLOCK_SIZE, top_k=BI_TOP_K)
+    assert out.shape == (B, H, N, D)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_xformers_sparse_finite():
+    device = 'cuda'
+    Q, K, V = make_inputs(torch.bfloat16, device=device)
+    out = xformers_sparse.attention(Q, K, V, causal=False, block_size=BI_BLOCK_SIZE, top_k=BI_TOP_K)
+    assert torch.isfinite(out).all(), "Output contains NaN or Inf"

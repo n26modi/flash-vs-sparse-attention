@@ -16,6 +16,12 @@ def compute_flops(batch, heads, seq_len, head_dim, variant='dense', block_size=6
         fine_softmax = 5 * B * H * N * top_k * block_size
         return coarse_flops + fine_matmul + fine_softmax
 
+    elif variant in ('flex_attn', 'xformers_sparse'):
+        # Fixed sliding-window at same density - no coarse stage
+        fine_matmul = 4 * B * H * N * top_k * block_size * D
+        fine_softmax = 5 * B * H * N * top_k * block_size
+        return fine_matmul + fine_softmax
+
     else:
         raise ValueError(f"Unknown variant: {variant}")
 
@@ -41,6 +47,10 @@ def compute_io_bytes(batch, heads, seq_len, head_dim, variant='naive', bytes_per
         num_blocks = N // block_size
         coarse_io = 2 * B * H * N * num_blocks * e
         return qkv + coarse_io + output
+
+    elif variant in ('flex_attn', 'xformers_sparse'):
+        # Fixed pattern - no coarse stage, tiled kernel never writes N*N to HBM
+        return qkv + output
 
     else:
         raise ValueError(f"Unknown variant: {variant}")

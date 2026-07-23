@@ -5,7 +5,7 @@ import torch
 
 import functools
 
-from attention import naive, sdpa, flash, block_indexer, block_indexer_triton
+from attention import naive, sdpa, flash, block_indexer, block_indexer_triton, flex_attn, xformers_sparse
 from benchmark.timer import measure_latency
 from benchmark.memory import measure_peak_hbm
 from benchmark.flops import compute_flops, compute_io_bytes
@@ -16,6 +16,8 @@ VARIANTS = {
     'flash': flash.attention,
     'block_indexer': functools.partial(block_indexer.attention, block_size=64, top_k=16),
     'block_indexer_triton': functools.partial(block_indexer_triton.attention, block_size=64, top_k=16),
+    'flex_attn': functools.partial(flex_attn.attention, block_size=64, top_k=16),
+    'xformers_sparse': functools.partial(xformers_sparse.attention, block_size=64, top_k=16),
 }
 
 SEQ_LENS = [512, 1024, 2048, 4096, 8192, 16384, 32768]
