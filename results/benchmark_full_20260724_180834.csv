@@ -1,0 +1,99 @@
+variant,seq_len,causal,skipped_oom,mean_ms,std_ms,min_ms,max_ms,peak_hbm_mb,theoretical_flops,theoretical_io_bytes_naive,theoretical_io_bytes_fa2,error
+naive,512,True,False,0.3131,0.0178,0.2908,0.3798,18.38,547356672,18874368,2097152,
+sdpa,512,True,False,0.051,0.0047,0.0471,0.0676,10.14,547356672,18874368,2097152,
+flash,512,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,512,True,False,5.1046,0.0818,4.9265,5.2859,548.52,1098907648,18874368,2097152,
+block_indexer_triton,512,True,False,0.8943,0.0136,0.8663,0.9359,10.77,1098907648,18874368,2097152,
+flex_attn,512,True,False,3.4066,0.0914,3.284,3.5942,27.88,1094713344,18874368,2097152,
+xformers_sparse,512,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,512,False,False,0.2089,0.0146,0.1925,0.2479,19.63,547356672,18874368,2097152,
+sdpa,512,False,False,0.0561,0.0069,0.0512,0.0778,11.65,547356672,18874368,2097152,
+flash,512,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,512,False,False,4.9416,0.0778,4.6868,5.0145,532.51,1098907648,18874368,2097152,
+block_indexer_triton,512,False,False,0.6739,0.0179,0.6492,0.7188,12.27,1098907648,18874368,2097152,
+flex_attn,512,False,False,3.3823,0.1059,3.2696,3.6383,29.38,1094713344,18874368,2097152,
+xformers_sparse,512,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,1024,True,False,0.3034,0.0187,0.2867,0.3779,48.13,2189426688,71303168,4194304,
+sdpa,1024,True,False,0.0728,0.0073,0.0686,0.1198,15.17,2189426688,71303168,4194304,
+flash,1024,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,1024,True,False,20.2481,0.4148,19.8277,21.2787,1599.91,2206203904,71303168,4194304,
+block_indexer_triton,1024,True,False,1.9177,0.0402,1.8216,1.9948,16.67,2206203904,71303168,4194304,
+flex_attn,1024,True,False,3.4473,0.0864,3.3403,3.6301,84.14,2189426688,71303168,4194304,
+xformers_sparse,1024,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,1024,False,False,0.2018,0.0178,0.1853,0.2612,47.13,2189426688,71303168,4194304,
+sdpa,1024,False,False,0.0812,0.0065,0.0768,0.1055,15.17,2189426688,71303168,4194304,
+flash,1024,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,1024,False,False,19.7807,0.3857,19.113,20.8517,1567.9,2206203904,71303168,4194304,
+block_indexer_triton,1024,False,False,1.7516,0.0731,1.5933,1.8463,16.67,2206203904,71303168,4194304,
+flex_attn,1024,False,False,3.4233,0.0949,3.3106,3.6116,87.15,2189426688,71303168,4194304,
+xformers_sparse,1024,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,2048,True,False,3.0158,0.0116,2.9983,3.0587,154.14,8757706752,276824064,8388608,
+sdpa,2048,True,False,0.124,0.0056,0.1198,0.1515,22.21,8757706752,276824064,8388608,
+flash,2048,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,2048,True,False,40.3286,0.6645,38.8884,42.0803,1607.06,4445962240,276824064,8388608,
+block_indexer_triton,2048,True,False,3.6498,0.0967,3.5564,3.9905,26.22,4445962240,276824064,8388608,
+flex_attn,2048,True,False,3.6079,0.0179,3.5779,3.6536,312.16,4378853376,276824064,8388608,
+xformers_sparse,2048,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,2048,False,False,1.8524,0.0103,1.835,1.8811,150.14,8757706752,276824064,8388608,
+sdpa,2048,False,False,0.1862,0.0052,0.1802,0.2038,22.21,8757706752,276824064,8388608,
+flash,2048,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,2048,False,False,39.9219,0.5531,38.8772,41.6,1575.05,4445962240,276824064,8388608,
+block_indexer_triton,2048,False,False,3.5877,0.1169,3.5,4.0663,26.21,4445962240,276824064,8388608,
+flex_attn,2048,False,False,3.6031,0.0143,3.5789,3.6454,312.16,4378853376,276824064,8388608,
+xformers_sparse,2048,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,4096,True,False,12.0233,0.0328,11.9726,12.1405,558.14,35030827008,1090519040,16777216,
+sdpa,4096,True,False,0.351,0.0098,0.3359,0.3809,30.27,35030827008,1090519040,16777216,
+flash,4096,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,4096,True,False,80.6749,1.4653,79.0159,84.4667,1615.34,9026142208,1090519040,16777216,
+block_indexer_triton,4096,True,False,7.2735,0.0651,7.1199,7.5274,42.55,9026142208,1090519040,16777216,
+flex_attn,4096,True,False,12.0678,0.0195,12.034,12.159,1194.21,8757706752,1090519040,16777216,
+xformers_sparse,4096,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,4096,False,False,6.9206,0.0161,6.8884,6.953,542.14,35030827008,1090519040,16777216,
+sdpa,4096,False,False,0.6343,0.0069,0.6236,0.6543,30.27,35030827008,1090519040,16777216,
+flash,4096,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,4096,False,False,80.5041,0.8581,79.1091,83.7376,1583.33,9026142208,1090519040,16777216,
+block_indexer_triton,4096,False,False,7.1816,0.0493,7.1455,7.4373,42.27,9026142208,1090519040,16777216,
+flex_attn,4096,False,False,12.5426,0.0214,12.5051,12.6228,1194.21,8757706752,1090519040,16777216,
+xformers_sparse,4096,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,8192,True,False,48.7529,0.0667,48.5868,48.9185,2158.14,140123308032,4328521728,33554432,
+sdpa,8192,True,False,1.2682,0.0496,1.0772,1.3404,46.4,140123308032,4328521728,33554432,
+flash,8192,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,8192,True,False,164.7609,2.0899,159.5965,167.9032,1631.9,18589155328,4328521728,33554432,
+block_indexer_triton,8192,True,False,15.7497,0.1391,15.6047,16.1157,103.46,18589155328,4328521728,33554432,
+flex_attn,8192,True,False,48.0845,0.0784,47.9949,48.2908,4710.39,17515413504,4328521728,33554432,
+xformers_sparse,8192,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,8192,False,False,27.591,0.0346,27.5026,27.7023,2094.14,140123308032,4328521728,33554432,
+sdpa,8192,False,False,2.4033,0.0475,2.1914,2.4627,46.4,140123308032,4328521728,33554432,
+flash,8192,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,8192,False,False,164.0355,2.5926,159.5157,169.1156,1599.89,18589155328,4328521728,33554432,
+block_indexer_triton,8192,False,False,15.7018,0.1318,15.6099,16.1444,102.39,18589155328,4328521728,33554432,
+flex_attn,8192,False,False,50.1433,0.0699,49.9927,50.2548,4710.39,17515413504,4328521728,33554432,
+xformers_sparse,8192,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,16384,True,True,,,,,,,,,
+sdpa,16384,True,False,5.0707,0.0801,4.9019,5.3197,78.65,560493232128,17246978048,67108864,
+flash,16384,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,16384,True,False,342.5443,1.6102,338.2886,346.1028,1665.03,39325794304,17246978048,67108864,
+block_indexer_triton,16384,True,False,38.1426,0.3921,37.4866,39.0922,322.77,39325794304,17246978048,67108864,
+flex_attn,16384,True,False,189.5808,0.1386,189.3857,189.9141,18751.14,35030827008,17246978048,67108864,
+xformers_sparse,16384,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,16384,False,True,,,,,,,,,
+sdpa,16384,False,False,9.8289,0.1384,9.6502,10.2134,78.65,560493232128,17246978048,67108864,
+flash,16384,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,16384,False,False,339.7872,1.5674,336.256,342.8393,1633.02,39325794304,17246978048,67108864,
+block_indexer_triton,16384,False,False,35.7884,0.3797,35.2266,36.7462,318.64,39325794304,17246978048,67108864,
+flex_attn,16384,False,False,197.4099,0.1419,197.2173,197.6904,18751.14,35030827008,17246978048,67108864,
+xformers_sparse,16384,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,32768,True,True,,,,,,,,,
+sdpa,32768,True,False,19.0226,0.3562,18.3398,19.4243,143.15,2241972928512,68853694464,134217728,
+flash,32768,True,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,32768,True,False,691.7394,1.5624,688.1168,694.9008,1731.28,87241523200,68853694464,134217728,
+block_indexer_triton,32768,True,False,103.3669,0.5106,102.5229,104.4582,1151.4,87241523200,68853694464,134217728,
+flex_attn,32768,True,False,,,,,,,,,"CUDA out of memory. Tried to allocate 64.00 GiB. GPU 0 has a total capacity of 22.03 GiB of which 1.52 GiB is free. Including non-PyTorch memory, this process has 20.51 GiB memory in use. Of the allocated memory 9.11 GiB is allocated by PyTorch, and 11.17 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+xformers_sparse,32768,True,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
+naive,32768,False,True,,,,,,,,,
+sdpa,32768,False,False,38.3966,0.3479,37.7764,39.2151,143.15,2241972928512,68853694464,134217728,
+flash,32768,False,False,,,,,,,,,FlashAttention-2 requires CUDA and the flash-attn package. Install requirements-gpu.txt on a GPU instance.
+block_indexer,32768,False,False,683.9574,1.4299,680.9129,687.489,1699.27,87241523200,68853694464,134217728,
+block_indexer_triton,32768,False,False,94.2002,0.8346,92.9587,96.6113,1135.14,87241523200,68853694464,134217728,
+flex_attn,32768,False,False,,,,,,,,,"CUDA out of memory. Tried to allocate 64.00 GiB. GPU 0 has a total capacity of 22.03 GiB of which 1.52 GiB is free. Including non-PyTorch memory, this process has 20.51 GiB memory in use. Of the allocated memory 9.11 GiB is allocated by PyTorch, and 11.17 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)"
+xformers_sparse,32768,False,False,,,,,,,,,xformers_sparse requires CUDA and a compatible xformers install.
