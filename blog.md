@@ -122,7 +122,7 @@ The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 
 
 **Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
 
-**FlexAttention was not fully compiled.** In our benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are therefore an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
+**FlexAttention was not fully compiled.** In my benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are therefore an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
 
 **Fixed hyperparameters.** block_size=64 and top_k=16 are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
 
