@@ -98,13 +98,11 @@ All benchmarks run on NVIDIA L4 (sm_89, 22GB HBM) with batch=1, heads=8, head_di
 
 ![Latency vs sequence length](results/latency_causal.png)
 
+The Triton kernel closes the gap on SDPA at long context as the O(N²) compute cost starts to dominate. At 32k, naive attention is off the chart entirely.
+
 ![Peak HBM vs sequence length](results/hbm_causal.png)
 
-The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 16k because it OOMs at 32k.
-
-![Achieved GFLOP/s vs sequence length](results/tflops_causal.png)
-
-SDPA/FA2 achieves high compute throughput because it is a heavily optimized kernel. This Triton kernel achieves lower raw GFLOP/s but on a 26x smaller FLOPs budget at 32k context. At long context, the right metric is not how fast you compute. It is how much you avoid computing.
+The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 16k because it OOMs at 32k. The Triton kernel stays flat - memory usage barely grows with sequence length because the attended token count is fixed at k×B regardless of N.
 
 ---
 
