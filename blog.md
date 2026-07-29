@@ -19,7 +19,7 @@ Attention has two scaling problems, and they occur at different sequence lengths
 Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
 FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
-
+ 
 FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
 **Phase 2: compute (long context).**
@@ -42,7 +42,9 @@ Divide the key sequence into blocks of size B (64 in this benchmark). For each b
 
 For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. Use this as the actual attention output.
 
-The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. **3.9% of the FLOP count of dense attention.**
+The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. 
+
+**3.9% of the FLOP count of dense attention.**
 
 Each query selects different blocks, determined by what that query actually scores highest on. The sparsity pattern is decided at runtime, not fixed at compile time.
 
