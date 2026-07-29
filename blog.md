@@ -32,7 +32,7 @@ The approach I took is a two-stage block-sparse mechanism.
 
 **Stage 1: coarse scoring.** Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: Q @ K_block_repr.T. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
 
-**Stage 2: fine attention.** For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. This is the actual attention output.
+**Stage 2: fine attention.** For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. Use this as the actual attention output.
 
 The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. **3.9% of the FLOP count of dense attention.**
 
@@ -62,13 +62,13 @@ The kernel uses **online softmax** to avoid materializing the full score matrix 
 - `l_i` — the running sum of exponentials
 - `acc` — the unnormalized output accumulator
 
-These update block by block as the kernel loops through the top-k block list. Intermediate scores and attention weights never touch HBM. They live in registers.
+These update block by block as the kernel loops through the top-k block list. Intermediate scores and attention weights never get stored in HBM. They live in registers.
 
 This is the same trick FlashAttention-2 uses for the dense case, applied to a sparse, runtime-determined block list.
 
 The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 drops from 80.7ms to 7.3ms. **11x speedup from fusion alone, with identical math.**
 
-Two things that bit me during implementation. First, Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
+Two things I found interesting during implementation. First, Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
 ---
 
