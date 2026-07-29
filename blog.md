@@ -4,7 +4,7 @@
 
 ## Key finding
 
-At 32k context, a hand-written Triton kernel running content-adaptive block-sparse attention computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T), peaks at 1.13GB HBM, and is 58x more memory-efficient than PyTorch FlexAttention. Naive dense attention runs out of memory above 8k context. FlexAttention fails attempting a 64GB allocation at 32k.
+At 32k context, our Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T), peaks at 1.13GB HBM, and is 58x more memory-efficient than PyTorch FlexAttention. Naive dense attention runs out of memory above 8k context. FlexAttention fails attempting a 64GB allocation at 32k.
 
 The kernel fuses block selection and online softmax into a single GPU launch. The sparsity pattern is not fixed at compile time. It is determined per query, per forward pass, based on actual content.
 
@@ -14,13 +14,13 @@ The kernel fuses block selection and online softmax into a single GPU launch. Th
 
 Attention has two scaling problems, and they occur at different sequence lengths.
 
-At short context, the bottleneck is **memory bandwidth**. Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
+**Phase 1: memory bandwidth (short context).** Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
 FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
 
-FA2's win is memory IO reduction, not fewer FLOPs (floating point operations). 
+FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
-At long context, the problem changes. Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
+**Phase 2: compute (long context).** Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
 
 That is where sparse attention comes in.
 
