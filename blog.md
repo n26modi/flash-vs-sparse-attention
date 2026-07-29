@@ -14,13 +14,17 @@ The kernel fuses block selection and online softmax into a single GPU launch. Th
 
 Attention has two scaling problems, and they occur at different sequence lengths.
 
-**Phase 1: memory bandwidth (short context).** Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
+**Phase 1: memory bandwidth (short context).**
+
+Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
 FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
 
 FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
-**Phase 2: compute (long context).** Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
+**Phase 2: compute (long context).**
+
+Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
 
 That is where sparse attention comes in.
 
@@ -30,9 +34,13 @@ That is where sparse attention comes in.
 
 The approach I took is a two-stage block-sparse mechanism.
 
-**Stage 1: coarse scoring.** Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: Q @ K_block_repr.T. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
+**Stage 1: coarse scoring.**
 
-**Stage 2: fine attention.** For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. Use this as the actual attention output.
+Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: Q @ K_block_repr.T. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
+
+**Stage 2: fine attention.**
+
+For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. Use this as the actual attention output.
 
 The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. **3.9% of the FLOP count of dense attention.**
 
