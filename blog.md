@@ -1,6 +1,6 @@
-# Content-Adaptive Sparse Attention Kernal for Long-Context Inference
+# Content-Adaptive Sparse Attention Kernel for Long-Context Inference
 
-*A novel open-source Triton kernel for runtime top-k block-sparse attention*
+*A novel Triton kernel that picks which tokens to attend to at runtime*
 
 ## Key finding
 
@@ -12,13 +12,13 @@ The kernel fuses block selection and online softmax into a single GPU launch. Th
 
 ## The two-phase problem
 
-Attention has two scaling problems, and they live at different sequence lengths.
+Attention has two scaling problems, and they occur at different sequence lengths.
 
-At short context, the bottleneck is **memory bandwidth**. Standard attention materializes an N×N score matrix in HBM. At N=8,192 with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
+At short context, the bottleneck is **memory bandwidth**. Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
-FlashAttention-2 solves this. It tiles the computation and never writes the N×N matrix to HBM. At 8k context, SDPA (which dispatches to FA2 on CUDA) runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
+FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
 
-FA2's win is IO reduction, not fewer FLOPs.
+FA2's win is memory IO reduction, not fewer FLOPs (floating point operations). 
 
 At long context, the problem changes. Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
 
@@ -28,7 +28,7 @@ That is where sparse attention comes in.
 
 ## Two-stage block indexer
 
-Here is how it works.
+The approach I took is a two-stage block-sparse mechanism.
 
 **Stage 1: coarse scoring.** Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: Q @ K_block_repr.T. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
 
@@ -42,13 +42,13 @@ Each query selects different blocks, determined by what that query actually scor
 
 ## Why Python is not enough
 
-I first implemented this in Python and PyTorch. The logic is correct. The math works. At 32k context, the Python block indexer runs on 87.2B FLOPs instead of 2.24T.
+I first implemented this in Python and PyTorch. The logic is correct and the math works. At 32k context, the Python block indexer runs on 87.2B FLOPs instead of 2.24T.
 
-But it is slow. At N=4,096, it takes 80.7ms.
+This is slow. At N=4,096, it takes 80.7ms.
 
-The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. That overhead adds up fast.
+The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x  10 μs/launch = 4.5 seconds, which is slow. 
 
-The problem is not the math. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch.
+Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch.
 
 ---
 
