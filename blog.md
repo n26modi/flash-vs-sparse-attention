@@ -2,7 +2,7 @@
 
 *A novel Triton kernel that picks which tokens to attend to at runtime*
 
-I started this trying to understand why attention is still slow at long context even with FlashAttention-2. Turns out FA2 is solving the wrong problem once you're past 8k tokens.
+I started this trying to understand why attention is still slow at long context even with FlashAttention-2. Past 8k tokens, FA2 doesn't even solve the right problem.  
 
 ## Key finding
 
@@ -64,7 +64,7 @@ This is slow. At N=4,096, it takes 80.7ms.
 
 The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x 10 μs/launch = 4.5ms of pure overhead before any real work happens. 
 
-Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch. That's why I started looking at Triton.
+Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch. That led me to writing a Triton kernel directly. 
 
 ---
 
@@ -88,7 +88,9 @@ The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 dro
 
 The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. Same algorithm. Same math. Same block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
-Two things I wish I knew before starting. First, Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. I did not figure this out quickly. Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
+Two things I wish I knew before starting. 
+1) Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. I did not figure this out quickly.
+2) Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
 ---
 
