@@ -70,7 +70,7 @@ Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations de
 
 ## The Triton kernel
 
-The solution is a hand-written Triton kernel that fuses the entire fine-attention stage into a single kernel launch per (batch, head, query) triple.
+I wrote a Triton kernel that fuses the entire fine-attention stage into a single kernel launch per (batch, head, query) triple.
 
 The kernel uses **online softmax** to avoid materializing the full score matrix over top-k blocks. Instead of computing all k scores, writing them to HBM, running softmax, writing again, and then computing the weighted sum, the kernel maintains a running state:
 
@@ -90,7 +90,7 @@ The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. Same algorithm
 
 Two things I wish I knew before starting. 
 1) Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. I did not figure this out quickly.
-2) Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
+2) The kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
 ---
 
