@@ -38,6 +38,10 @@ The result: instead of attending to N tokens per query, each query attends to k√
 
 Each query selects different blocks, determined by what that query actually scores highest on. The sparsity pattern is decided at runtime, not fixed at compile time.
 
+![Block indexer FLOPs as fraction of dense](results/flops_ratio.png)
+
+At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that is not worth it when N is small. The crossover happens around 2k tokens. Past that, the savings compound.
+
 ---
 
 ## Why Python is not enough
@@ -68,6 +72,10 @@ This is the same trick FlashAttention-2 uses for the dense case, applied to a sp
 
 The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 drops from 80.7ms to 7.3ms. **11x speedup from fusion alone, with identical math.**
 
+![Triton fusion speedup over Python](results/fusion_speedup.png)
+
+The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. Same algorithm. Same math. Same block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
+
 Two things I found interesting during implementation. First, Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. Second, the kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
 ---
@@ -93,14 +101,6 @@ All benchmarks run on NVIDIA L4 (sm_89, 22GB HBM) with batch=1, heads=8, head_di
 ![Peak HBM vs sequence length](results/hbm_causal.png)
 
 The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 16k because it OOMs at 32k.
-
-![Block indexer FLOPs as fraction of dense](results/flops_ratio.png)
-
-At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that is not worth it when N is small. The crossover happens around 2k tokens. Past that, the savings compound. At 32k, the kernel is computing 3.9% of what a dense pass would require.
-
-![Triton fusion speedup over Python](results/fusion_speedup.png)
-
-The fusion speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. Same algorithm. Same math. Same block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
 ![Achieved GFLOP/s vs sequence length](results/tflops_causal.png)
 
