@@ -8,7 +8,7 @@ I started this trying to understand why attention is still slow at long context 
 
 At 32k context, my Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T), peaks at 1.13GB HBM, and is 58x more memory-efficient than PyTorch FlexAttention. Naive dense attention runs out of memory above 8k context. FlexAttention fails attempting a 64GB allocation at 32k.
 
-The kernel fuses block selection and online softmax into a single GPU launch. The sparsity pattern is not fixed at compile time. It is determined per query, per forward pass, based on actual content.
+The kernel fuses block selection and online softmax into a single GPU launch. The sparsity pattern is not fixed at compile time. It is determined per query, based on actual content.
 
 ---
 
@@ -28,7 +28,7 @@ FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
 Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
 
-That is where sparse attention comes in.
+That's where sparse attention comes in.
 
 ---
 
@@ -42,7 +42,7 @@ Divide the key sequence into blocks of size B (64 in this benchmark). For each b
 
 **Stage 2: fine attention.**
 
-For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. Use this as the actual attention output.
+For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. This is the attention output.
 
 The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. 
 
@@ -64,7 +64,7 @@ This is slow. At N=4,096, it takes 80.7ms.
 
 The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x 10 μs/launch = 4.5ms of pure overhead before any real work happens. 
 
-Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch. That led me to writing a Triton kernel directly. 
+Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch. That led me to write a Triton kernel directly. 
 
 ---
 
@@ -98,7 +98,7 @@ Two things I wish I knew before starting.
 
 PyTorch FlexAttention (2.5+) compiles custom attention masks into Triton kernels via torch.compile. It is a strong tool for fixed sparsity patterns: sliding window, local attention, causal masking with custom logic. If the sparsity pattern is known at compile time, FlexAttention will produce an efficient kernel for it.
 
-This kernel solves a different problem. The sparsity pattern is determined at runtime per query, based on actual content. torch.compile can't fuse over runtime-determined indices. Stage 1 handles this dynamically.
+My kernel solves a different problem. The sparsity pattern is determined at runtime per query, based on actual content. torch.compile can't fuse over runtime-determined indices. Stage 1 handles this dynamically.
 
 For the benchmark, FlexAttention was given a fixed sliding-window pattern at the same token density as my kernel (k×B tokens per query). At 16k context, FlexAttention peaks at 18.31GB HBM. My kernel peaks at 322.8MB. **58x lower peak memory.**
 
@@ -124,7 +124,7 @@ The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 
 
 **Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
 
-**FlexAttention was not fully compiled.** In my benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are therefore an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
+**FlexAttention was not fully compiled.** In my benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
 
 **Fixed hyperparameters.** block_size=64 and top_k=16 are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
 
