@@ -108,8 +108,6 @@ The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 
 
 ## Caveats
 
-**This is approximate attention.** The block indexer selects top-k blocks by coarse score, not exact attention weight. Tokens in non-selected blocks are not attended to. For tasks where relevant context is concentrated and roughly block-aligned, the approximation is reasonable. For tasks requiring full attention across arbitrary positions, it is not.
-
 **Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
 
 **FlexAttention was not fully compiled.** In our benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are therefore an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
