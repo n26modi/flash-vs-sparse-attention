@@ -1,4 +1,4 @@
-# Content-Adaptive Sparse Attention for Long-Context Inference
+# Content-Adaptive Sparse Attention Kernal for Long-Context Inference
 
 *A novel open-source Triton kernel for runtime top-k block-sparse attention*
 
