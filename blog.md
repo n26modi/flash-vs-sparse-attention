@@ -1,20 +1,18 @@
 # Content-Adaptive Sparse Attention Kernel for Long-Context Inference
 
-*A novel Triton kernel that picks which tokens to attend to at runtime*
-
-I started this trying to understand why attention is still slow at long context even with FlashAttention-2. Past 8k tokens, FA2 doesn't even solve the right problem.  
+*A novel Triton kernel that picks which tokens to attend to at runtime*  
 
 ## Key finding
 
-At 32k context, my Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T), peaks at 1.13GB HBM, and is 58x more memory-efficient than PyTorch FlexAttention. Naive dense attention runs out of memory above 8k context. FlexAttention fails attempting a 64GB allocation at 32k.
+At 32k context, my Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T), peaks at 1.13GB HBM, and is 58x more memory-efficient than PyTorch FlexAttention. Naive dense attention runs out of memory above 8k context, while FlexAttention fails by attempting a 64GB allocation at 32k.
 
-The kernel fuses block selection and online softmax into a single GPU launch. The sparsity pattern is not fixed at compile time. It is determined per query, based on actual content.
+The kernel fuses block selection and online softmax into a single GPU launch. Instead of the sparsity pattern being fixed at compile time, it's  determined per query, based on actual content.
 
 ---
 
 ## The two-phase problem
 
-Attention has two scaling problems, and they occur at different sequence lengths.
+Attention has two scaling problems, which occur at different sequence lengths.
 
 **Phase 1: memory bandwidth (short context).**
 
@@ -26,7 +24,7 @@ FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
 **Phase 2: compute (long context).**
 
-Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You cannot tile your way out of that. You need fewer FLOPs.
+Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You can't tile your way out of that, you need fewer FLOPs.
 
 That's where sparse attention comes in.
 
@@ -34,7 +32,7 @@ That's where sparse attention comes in.
 
 ## Two-stage block indexer
 
-The approach I took is a two-stage block-sparse mechanism.
+The approach I took is a two-stage, block-sparse mechanism.
 
 **Stage 1: coarse scoring.**
 
@@ -44,7 +42,7 @@ Divide the key sequence into blocks of size B (64 in this benchmark). For each b
 
 For each query, take the top-k highest-scoring blocks. Run dense attention only over those k×B tokens. This is the attention output.
 
-The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that is 1,024 tokens instead of 32,768. 
+The result: instead of attending to N tokens per query, each query attends to k×B tokens. At N=32,768, B=64, k=16, that's 1,024 tokens instead of 32,768. 
 
 **3.9% of the FLOP count of dense attention.**
 
@@ -52,7 +50,7 @@ Each query selects different blocks, determined by what that query scores highes
 
 ![Block indexer FLOPs as fraction of dense](results/flops_ratio.png)
 
-At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that is not worth it when N is small. The crossover happens around 2k tokens. Past that, the savings compound.
+At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that isn't worth it when N is small. The crossover happens around 2k tokens. Past that, the savings compound.
 
 ---
 
@@ -86,7 +84,7 @@ The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 dro
 
 ![Triton fusion speedup over Python](results/fusion_speedup.png)
 
-The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. Same algorithm. Same math. Same block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
+The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. It's the same algorithm, math and block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
 Two things I wish I knew before starting. 
 1) Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. I did not figure this out quickly.
