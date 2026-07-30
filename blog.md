@@ -36,7 +36,7 @@ The approach I took is a two-stage, block-sparse mechanism.
 
 **Stage 1: coarse scoring.**
 
-Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: Q @ K_block_repr.T. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
+Divide the key sequence into blocks of size B (64 in this benchmark). For each block, compute a representative vector by mean-pooling the keys within it. Score each query against every block representative: `Q @ K_block_repr.T`. This produces a score per (query, block) pair in O(N × N/B) operations instead of O(N²).
 
 **Stage 2: fine attention.**
 
@@ -87,16 +87,16 @@ The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 dro
 The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. It's the same algorithm, math and block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
 Two things I wish I knew before starting. 
-1) Triton pointer arithmetic requires int32 indices. Top-k block indices must be cast to int32 before being passed into the kernel. int64 causes silent incorrect output, not an error. I did not figure this out quickly.
+1) Triton pointer arithmetic requires `int32` indices. Top-k block indices must be cast to `int32` before being passed into the kernel. `int64` causes silent incorrect output, not an error. I did not figure this out quickly.
 2) The kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
 ---
 
 ## FlexAttention comparison
 
-PyTorch FlexAttention (2.5+) compiles custom attention masks into Triton kernels via torch.compile. It is a strong tool for fixed sparsity patterns: sliding window, local attention, causal masking with custom logic. If the sparsity pattern is known at compile time, FlexAttention will produce an efficient kernel for it.
+PyTorch FlexAttention (2.5+) compiles custom attention masks into Triton kernels via `torch.compile`. It is a strong tool for fixed sparsity patterns: sliding window, local attention, causal masking with custom logic. If the sparsity pattern is known at compile time, FlexAttention will produce an efficient kernel for it.
 
-My kernel solves a different problem. The sparsity pattern is determined at runtime per query, based on actual content. torch.compile can't fuse over runtime-determined indices. Stage 1 handles this dynamically.
+My kernel solves a different problem. The sparsity pattern is determined at runtime per query, based on actual content. `torch.compile` can't fuse over runtime-determined indices. Stage 1 handles this dynamically.
 
 For the benchmark, FlexAttention was given a fixed sliding-window pattern at the same token density as my kernel (k×B tokens per query). At 16k context, FlexAttention peaks at 18.31GB HBM. My kernel peaks at 322.8MB. **58x lower peak memory.**
 
@@ -122,9 +122,9 @@ The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 
 
 **Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
 
-**FlexAttention was not fully compiled.** In my benchmark, torch.compile triggered a warning that flex_attention was not being compiled into a fused kernel. The FlexAttention latency numbers are an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
+**FlexAttention was not fully compiled.** In my benchmark, `torch.compile` triggered a warning that `flex_attention` was not being compiled into a fused kernel. The FlexAttention latency numbers are an upper bound. Memory usage does not depend on compilation status, and the OOM at 32k is real regardless.
 
-**Fixed hyperparameters.** block_size=64 and top_k=16 are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
+**Fixed hyperparameters.** `block_size=64` and `top_k=16` are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
 
 ---
 
@@ -134,7 +134,7 @@ Two directions I think are underexplored in open-source:
 
 **Backward pass.** A differentiable version would make this usable for training, which is where sparse attention matters most. The math follows from differentiating through the sparse softmax-weighted sum over selected blocks. The hard part is that Triton has limited autodiff support, so the backward kernel needs to be written manually. FA2's backward pass is the reference for the dense case. A clean open-source backward pass for runtime-adaptive sparse attention does not exist yet.
 
-**Per-head sparsity budgets.** Right now top_k is uniform across all heads. Different heads attend differently - some are local, some are global, some track syntax while others track semantics. Letting each head pick its own top_k at runtime makes sense, and from what I can find it has not been done cleanly in open-source. Most of the work is already done: Stage 1 already produces per-head coarse scores. The change is letting top_k vary per head rather than fixing it globally.
+**Per-head sparsity budgets.** Right now `top_k` is uniform across all heads. Different heads attend differently - some are local, some are global, some track syntax while others track semantics. Letting each head pick its own `top_k` at runtime makes sense, and from what I can find it has not been done cleanly in open-source. Most of the work is already done: Stage 1 already produces per-head coarse scores. The change is letting `top_k` vary per head rather than fixing it globally.
 
 ---
 
