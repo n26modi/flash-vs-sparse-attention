@@ -16,7 +16,7 @@ Attention has two scaling problems, which occur at different sequence lengths.
 
 **Phase 1: memory bandwidth (short context).**
 
-Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with batch=1, heads=8, head_dim=64 in BF16, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
+Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with `batch=1`, `heads=8`, `head_dim=64` in `BF16`, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
 FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
  
@@ -106,7 +106,7 @@ At 32k context, FlexAttention fails entirely, attempting a 64GB allocation on a 
 
 ## Results
 
-All benchmarks run on NVIDIA L4 (sm_89, 22GB HBM) with batch=1, heads=8, head_dim=64, BF16, block_size=64, top_k=16.
+All benchmarks run on NVIDIA L4 (sm_89, 22GB HBM) with `batch=1`, `heads=8`, `head_dim=64`, `BF16`, `block_size=64`, `top_k=16`.
 
 ![Latency vs sequence length](results/latency_causal.png)
 
