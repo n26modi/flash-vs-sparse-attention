@@ -140,4 +140,4 @@ Two directions I think I could explore moving forward:
 
 Python, PyTorch, Triton, GCP L4 (sm_89)
 
-Code: [github.com/n26modi/triton-sparse-attention-bench](https://github.com/n26modi/triton-sparse-attention-bench)
+Code: [github.com/n26modi/sparse-attention-triton-bench](https://github.com/n26modi/sparse-attention-triton-bench)
