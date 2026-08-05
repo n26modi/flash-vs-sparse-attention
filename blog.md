@@ -4,9 +4,9 @@
 
 ## Key finding
 
-At 32k context, my Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T) and peaks at 1.13GB HBM. Naive dense attention runs out of memory above 8k context. FlexAttention fails attempting a 64GB allocation at 32k.
+At 32k context, my Triton kernel computes 3.9% of dense attention's FLOPs (87.2B vs 2.24T) and peaks at 1.13GB HBM. Naive dense attention runs out of memory above 8k context. PyTorch's FlexAttention fails by attempting a 64GB allocation at 32k.
 
-The kernel fuses block selection and online softmax into a single GPU launch. Instead of the sparsity pattern being fixed at compile time, it's  determined per query, based on actual content.
+The kernel fuses block selection and online softmax into a single GPU launch. Instead of the sparsity pattern being fixed at compile time, it's determined per query, based on actual content.
 
 ---
 
@@ -18,13 +18,13 @@ Attention has two scaling problems, which occur at different sequence lengths.
 
 Standard attention materializes an N×N score matrix in HBM. At a sequence length of 8,192, with `batch=1`, `heads=8`, `head_dim=64` in `BF16`, that matrix is 8.6GB. Reading and writing it is what makes naive attention slow, not the matrix multiply itself.
 
-FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. **38x lower latency and 46x lower peak HBM, at identical FLOP count.**
- 
-FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
+FlashAttention-2 solves this. It tiles the computation into blocks that fit in SRAM, so the N×N matrix never has to be written to HBM. At 8k context, FA2 runs in 1.27ms and peaks at 46.4MB HBM. Naive attention takes 48.75ms and peaks at 2.16GB. 
+
+This results in **38x lower latency and 46x lower peak HBM, at identical FLOP count.** To be clear, FA2's win is memory IO reduction, not fewer FLOPs (floating point operations).
 
 **Phase 2: compute (long context).**
 
-Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. You can't tile your way out of that, you need fewer FLOPs.
+Even with perfect IO efficiency, the O(N²) FLOP count becomes the bottleneck at long context. At N=32,768, dense attention requires 2.24 trillion FLOPs per forward pass. At this volume, you can't just tile your way out of it, you actually need fewer FLOPs.
 
 That's where sparse attention comes in.
 
@@ -50,7 +50,7 @@ Each query selects different blocks, determined by what that query scores highes
 
 ![Block indexer FLOPs as fraction of dense](results/flops_ratio.png)
 
-At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that isn't worth it when N is small. The crossover happens around 2k tokens. Past that, the savings compound.
+At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that isn't worth it when N is small. The inflection point happens around 2k tokens. Past that, the savings compound.
 
 ---
 
@@ -58,9 +58,9 @@ At short context, the block indexer costs more than dense attention. The coarse 
 
 I first implemented this in Python and PyTorch. The logic is correct and the math works. At 32k context, the Python block indexer runs on 87.2B FLOPs instead of 2.24T.
 
-This is slow. At N=4,096, it takes 80.7ms.
+But, this is slow. At N=4,096, it takes 80.7ms.
 
-The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x 10 μs/launch = 4.5ms of pure overhead before any real work happens. 
+The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x 10 μs/launch = 4.5ms of just pure overhead before the actual  work even happens. 
 
 Here, the math isn't the problem. PyTorch cannot fuse a loop whose iterations depend on runtime top-k indices. Every iteration is a separate GPU dispatch. That led me to write a Triton kernel directly. 
 
@@ -78,7 +78,7 @@ The kernel uses **online softmax** to avoid materializing the full score matrix 
 
 These update block by block as the kernel loops through the top-k block list. Intermediate scores and attention weights never get stored in HBM. They live in registers.
 
-This is the same trick FlashAttention-2 uses for the dense case, applied to a sparse, runtime-determined block list.
+This is the same trick FlashAttention-2 uses for the dense case. I just applied it to a sparse, runtime-determined block list.
 
 The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 drops from 80.7ms to 7.3ms. **11x speedup from fusion alone, with identical math.**
 
@@ -86,7 +86,7 @@ The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 dro
 
 The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. It's the same algorithm, math and block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
-Two things I wish I knew before starting. 
+Here are two things I wish I knew before starting. 
 1) Triton pointer arithmetic requires `int32` indices. Top-k block indices must be cast to `int32` before being passed into the kernel. `int64` causes silent incorrect output, not an error. I did not figure this out quickly.
 2) The kernel definition must live inside an `if TRITON_AVAILABLE:` guard at the module level. `@triton.jit` executes at import time, so it will crash on CPU-only machines if defined at module scope.
 
@@ -118,17 +118,17 @@ The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 
 
 ## Caveats
 
-**Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
+1) **Inference only.** There is no backward pass. The kernel cannot be used for training in its current form.
 
-**FlexAttention was not fully compiled.** In my benchmark, `torch.compile` triggered a warning that `flex_attention` was not being compiled into a fused kernel. Both latency and memory numbers are therefore upper bounds - a properly fused FlexAttention would tile the computation and use far less HBM. The OOM at 32k is real regardless.
+2) **FlexAttention was not fully compiled.** In my benchmark, `torch.compile` triggered a warning that `flex_attention` was not being compiled into a fused kernel. Both latency and memory numbers are therefore upper bounds - a properly fused FlexAttention would tile the computation and use far less HBM. The OOM at 32k is real regardless.
 
-**Fixed hyperparameters.** `block_size=64` and `top_k=16` are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
+3) **Fixed hyperparameters.** `block_size=64` and `top_k=16` are fixed. Different values change the FLOPs ratio and approximation quality. I did not sweep these.
 
 ---
 
 ## What's next
 
-Two directions I think are underexplored in open-source:
+Two directions I think I could explore moving forward:
 
 **Backward pass.** A differentiable version would make this usable for training, which is where sparse attention matters most. The math follows from differentiating through the sparse softmax-weighted sum over selected blocks. The hard part is that Triton has limited autodiff support, so the backward kernel needs to be written manually. FA2's backward pass is the reference for the dense case. A clean open-source backward pass for runtime-adaptive sparse attention does not exist yet.
 
