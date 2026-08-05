@@ -48,7 +48,7 @@ The result: instead of attending to N tokens per query, each query attends to k�
 
 Each query selects different blocks, determined by what that query scores highest on. The sparsity pattern is decided at runtime, not fixed at compile time.
 
-![Block indexer FLOPs as fraction of dense](results/flops_ratio.png)
+![Block indexer FLOPs as fraction of dense](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/flops_ratio.png)
 
 At short context, the block indexer costs more than dense attention. The coarse scoring stage adds overhead that isn't worth it when N is small. The inflection point happens around 2k tokens. Past that, the savings compound.
 
@@ -82,7 +82,7 @@ This is the same trick FlashAttention-2 uses for the dense case. I just applied 
 
 The result: ~450 kernel launches reduced to 3. Wall-clock latency at N=4,096 drops from 80.7ms to 7.3ms. **11x speedup from fusion alone, with identical math.**
 
-![Triton fusion speedup over Python](results/fusion_speedup.png)
+![Triton fusion speedup over Python](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/fusion_speedup.png)
 
 The speedup ranges from 5.7x at 512 tokens to 11.1x at 4k tokens. It's the same algorithm, math and block structure. The only difference is whether the fine attention stage runs as 450 dispatches or 3.
 
@@ -106,11 +106,11 @@ For the benchmark, FlexAttention was given a fixed sliding-window pattern at the
 
 All benchmarks run on NVIDIA L4 (sm_89, 22GB HBM) with `batch=1`, `heads=8`, `head_dim=64`, `BF16`, `block_size=64`, `top_k=16`.
 
-![Latency vs sequence length](results/latency_causal.png)
+![Latency vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/latency_causal.png)
 
 The Triton kernel closes the gap on SDPA at long context as the O(N²) compute cost starts to dominate. At 32k, naive attention is off the chart entirely.
 
-![Peak HBM vs sequence length](results/hbm_causal.png)
+![Peak HBM vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/hbm_causal.png)
 
 The dashed red line marks the L4's 24GB HBM limit. FlexAttention's line ends at 16k because it OOMs at 32k. The Triton kernel stays flat - memory usage barely grows with sequence length because the attended token count is fixed at k×B regardless of N.
 
