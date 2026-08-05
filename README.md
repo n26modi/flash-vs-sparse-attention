@@ -37,11 +37,7 @@ All share the same signature: `(Q, K, V, causal) -> output`
 
 Benchmarked on NVIDIA L4 (sm_89, 22GB HBM). `batch=1`, `heads=8`, `head_dim=64`, `BF16`, `block_size=64`, `top_k=16`.
 
-![Latency vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/latency_causal.png)
-
-![Peak HBM vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/hbm_causal.png)
-
-![FLOPs ratio vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/flops_ratio.png)
+<img src="https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/latency_causal.png" width="32%"> <img src="https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/hbm_causal.png" width="32%"> <img src="https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/flops_ratio.png" width="32%">
 
 ---
 
