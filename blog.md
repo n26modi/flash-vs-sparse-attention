@@ -58,7 +58,7 @@ At short context, the block indexer costs more than dense attention. The coarse 
 
 I first implemented this in Python and PyTorch. The logic is correct and the math works. At 32k context, the Python block indexer runs on 87.2B FLOPs instead of 2.24T.
 
-But, this is slow. At N=4,096, it takes 80.7ms.
+But this is slow. At N=4,096, it takes 80.7ms.
 
 The reason is kernel launches. The fine attention stage loops over top-k blocks and runs a separate PyTorch attention call per block. At N=4,096 with k=16 blocks per query, across all query chunks, this is approximately 450 kernel launches. Each launch carries ~10-20μs of overhead. 450 launches x 10 μs/launch = 4.5ms of just pure overhead before the actual  work even happens. 
 
