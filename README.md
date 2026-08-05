@@ -18,7 +18,7 @@ Attention has two scaling problems, which occur at different sequence lengths.
 
 ---
 
-## Five variants
+## Variants
 
 All share the same signature: `(Q, K, V, causal) -> output`
 
@@ -28,17 +28,8 @@ All share the same signature: `(Q, K, V, causal) -> output`
 | `sdpa` | `F.scaled_dot_product_attention`. dispatches to FA2 on CUDA automatically |
 | `flash` | direct `flash_attn_func`. wrapper handles (B,N,H,D) layout |
 | `block_indexer` | Python two-stage sparse attention. correct math, ~450 kernel launches |
-| `block_indexer_triton` | Triton-fused fine stage. online softmax. 3 kernel launches |
-
-### block_indexer_triton
-
-The novel contribution. Sparse attention where the sparsity pattern is determined at runtime per query, based on actual content - not fixed at compile time.
-
-**Stage 1 (coarse):** divide keys into blocks of size B. mean-pool each block into a representative vector. score every query against all block representatives: O(N * N/B) instead of O(N²).
-
-**Stage 2 (fine):** for each query, take the top-k highest-scoring blocks. run dense attention only over those k*B tokens.
-
-The Triton kernel fuses stage 2 with online softmax into a single GPU launch per (batch, head, query) triple. Intermediate scores never touch HBM - they live in registers.
+| `block_indexer_triton` | Triton-fused fine stage. online softmax. 3 kernel launches. novel contribution |
+| `flex_attn` | FlexAttention with fixed sliding-window mask. compile-time sparsity baseline |
 
 ---
 
@@ -51,8 +42,6 @@ Benchmarked on NVIDIA L4 (sm_89, 22GB HBM). `batch=1`, `heads=8`, `head_dim=64`,
 ![Peak HBM vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/hbm_causal.png)
 
 ![FLOPs ratio vs sequence length](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/flops_ratio.png)
-
-![Triton fusion speedup over Python](https://raw.githubusercontent.com/n26modi/sparse-attention-triton-bench/main/results/fusion_speedup.png)
 
 ---
 
